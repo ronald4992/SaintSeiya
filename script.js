@@ -1,50 +1,4 @@
-const knights = [
-  {
-    id: 'seiya',
-    name: 'Seiya',
-    constellation: 'Pegasus',
-    rank: 'Bronze',
-    short: 'El protagonista. Espíritu combativo y corazón valiente.',
-    abilities: ['Meteoros de Pegaso', 'Pegasus Rolling Crush', 'Constellation Drive'],
-    image: 'https://upload.wikimedia.org/wikipedia/en/3/34/Pegasus_Seiya.png'
-  },
-  {
-    id: 'shiryu',
-    name: 'Shiryu',
-    constellation: 'Dragon',
-    rank: 'Bronze',
-    short: 'Calmado y fuerte, maestro del poder del dragón.',
-    abilities: ['Dragon Shield', 'Rozan Shoryu Ha'],
-    image: 'https://upload.wikimedia.org/wikipedia/en/1/1a/Dragon_Shiryu.png'
-  },
-  {
-    id: 'hyoga',
-    name: 'Hyoga',
-    constellation: 'Cygnus',
-    rank: 'Bronze',
-    short: 'Controla el hielo. Muy comprometido con sus ideales.',
-    abilities: ['Diamond Dust', 'Aurora Thunder Warrior'],
-    image: 'https://upload.wikimedia.org/wikipedia/en/6/64/Cygnus_Hyoga.png'
-  },
-  {
-    id: 'shun',
-    name: 'Shun',
-    constellation: 'Andromeda',
-    rank: 'Bronze',
-    short: 'Pacífico y sensible. Sus cadenas son su arma defensiva.',
-    abilities: ['Chains of Andromeda', 'Nebula Chain'],
-    image: 'https://upload.wikimedia.org/wikipedia/en/d/da/Andromeda_Shun.png'
-  },
-  {
-    id: 'ikki',
-    name: 'Ikki',
-    constellation: 'Phoenix',
-    rank: 'Bronze',
-    short: 'Fiero y solitario. Renace de sus cenizas.',
-    abilities: ['Phoenix Illusion Fist', 'Ho Yoku Ten Sho'],
-    image: 'https://upload.wikimedia.org/wikipedia/en/8/8a/Phoenix_Ikki.png'
-  }
-];
+const API_BASE = 'https://api.ejemplo.com';  // reemplaza con la URL real de la API
 
 const cardsContainer = document.getElementById('cards');
 const searchInput = document.getElementById('search');
@@ -58,14 +12,36 @@ const modalBody = document.getElementById('modal-body');
 const modalClose = document.getElementById('modal-close');
 const modalBackdrop = document.getElementById('modal-backdrop');
 
-function init() {
-  populateFilterOptions();
-  renderCards(knights);
-  attachEventListeners();
+let knights = [];  // se llenará desde la API
+
+async function init() {
+  try {
+    knights = await fetchKnights();
+    populateFilterOptions();
+    renderCards(knights);
+    attachEventListeners();
+  } catch (err) {
+    console.error('Error cargando datos:', err);
+    cardsContainer.innerHTML = `<p style="color:rgba(246,247,251,0.7)">No se pudo cargar la lista.</p>`;
+  }
+}
+
+async function fetchKnights() {
+  const resp = await fetch(`${API_BASE}/knights`);
+  if (!resp.ok) throw new Error('Error en la respuesta de la API');
+  const data = await resp.json();
+  return data;
+}
+
+async function fetchKnightById(id) {
+  const resp = await fetch(`${API_BASE}/knights/${id}`);
+  if (!resp.ok) throw new Error('Error al obtener detalle');
+  const data = await resp.json();
+  return data;
 }
 
 function populateFilterOptions() {
-  const constellations = [...new Set(knights.map(k => k.constellation))].sort();
+  const constellations = Array.from(new Set(knights.map(k => k.constellation))).sort();
   for (const c of constellations) {
     const opt = document.createElement('option');
     opt.value = c;
@@ -76,7 +52,7 @@ function populateFilterOptions() {
 
 function renderCards(list) {
   cardsContainer.innerHTML = '';
-  if (!list.length) {
+  if (list.length === 0) {
     cardsContainer.innerHTML = `<p style="color:rgba(246,247,251,0.7)">No hay caballeros que coincidan.</p>`;
     return;
   }
@@ -90,13 +66,24 @@ function renderCards(list) {
       <div class="avatar"><img src="${k.image}" alt="${k.name}"></div>
       <div class="card-body">
         <h3>${k.name}</h3>
-        <p class="muted">${k.short}</p>
+        <p class="muted">${k.short_description || ''}</p>
         <div class="badge">${k.rank} — ${k.constellation}</div>
       </div>
     `;
-    card.addEventListener('click', () => openModal(k));
-    card.addEventListener('keydown', e => { if (e.key === 'Enter') openModal(k); });
+    card.addEventListener('click', () => openModalById(k.id));
+    card.addEventListener('keydown', e => {
+      if (e.key === 'Enter') openModalById(k.id);
+    });
     cardsContainer.appendChild(card);
+  }
+}
+
+async function openModalById(id) {
+  try {
+    const k = await fetchKnightById(id);
+    openModal(k);
+  } catch (err) {
+    console.error('Error cargar detalle:', err);
   }
 }
 
@@ -107,10 +94,10 @@ function openModal(k) {
   modalBody.innerHTML = `
     <div class="big-avatar"><img src="${k.image}" alt="${k.name}"></div>
     <div>
-      <p>${k.short}</p>
+      <p>${k.short_description || ''}</p>
       <div style="height:8px"></div>
       <div class="stat"><strong>Habilidades:</strong></div>
-      <ul>${k.abilities.map(a => `<li>${a}</li>`).join('')}</ul>
+      <ul>${(k.abilities || []).map(a => `<li>${a}</li>`).join('')}</ul>
       <div style="height:8px"></div>
       <div class="tags"><span class="badge">ID:${k.id}</span></div>
     </div>
@@ -135,8 +122,8 @@ function applyFilters() {
     return matchName && matchConst;
   });
 
-  if (sort === 'name-asc') result.sort((a,b) => a.name.localeCompare(b.name));
-  if (sort === 'name-desc') result.sort((a,b) => b.name.localeCompare(a.name));
+  if (sort === 'name-asc') result.sort((a, b) => a.name.localeCompare(b.name));
+  if (sort === 'name-desc') result.sort((a, b) => b.name.localeCompare(a.name));
 
   renderCards(result);
 }
@@ -145,6 +132,7 @@ function attachEventListeners() {
   searchInput.addEventListener('input', applyFilters);
   filterSelect.addEventListener('change', applyFilters);
   sortSelect.addEventListener('change', applyFilters);
+
   modalClose.addEventListener('click', closeModal);
   modalBackdrop.addEventListener('click', closeModal);
   document.addEventListener('keydown', e => {
@@ -152,4 +140,5 @@ function attachEventListeners() {
   });
 }
 
+// iniciar
 init();
