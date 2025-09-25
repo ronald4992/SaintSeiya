@@ -1,4 +1,3 @@
-// script.js
 
 const cardsContainer = document.getElementById('cards');
 const searchInput = document.getElementById('search');
